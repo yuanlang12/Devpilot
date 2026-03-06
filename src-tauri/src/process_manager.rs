@@ -36,6 +36,28 @@ fn find_available_port(preferred: u16) -> u16 {
     preferred
 }
 
+/// 检测项目目录下的虚拟环境 bin 路径
+fn detect_venv_bin(project_path: &std::path::Path) -> Option<String> {
+    let venv_dirs = [".venv", "venv", "env", ".env"];
+    for venv in &venv_dirs {
+        let bin_path = project_path.join(venv).join("bin");
+        if bin_path.exists() {
+            return Some(bin_path.to_string_lossy().to_string());
+        }
+    }
+    // 也检查子目录 backend/
+    let backend = project_path.join("backend");
+    if backend.exists() {
+        for venv in &venv_dirs {
+            let bin_path = backend.join(venv).join("bin");
+            if bin_path.exists() {
+                return Some(bin_path.to_string_lossy().to_string());
+            }
+        }
+    }
+    None
+}
+
 /// 启动项目
 pub fn start_project(project: &mut RegisteredProject) -> Result<(), Box<dyn std::error::Error>> {
     // 找到可用端口
@@ -49,11 +71,21 @@ pub fn start_project(project: &mut RegisteredProject) -> Result<(), Box<dyn std:
     let project_path = std::path::Path::new(&project.path);
     let cmd = adjust_command_for_package_manager(&project.start_command, project_path);
 
-    // 使用 shell 启动命令，注入 PORT 环境变量
-    let child = Command::new("sh")
+    // 如果项目有虚拟环境，将其 bin 目录加入 PATH
+    let mut command = Command::new("sh");
+    command
         .args(["-c", &cmd])
         .current_dir(&project.path)
-        .env("PORT", port.to_string())
+        .env("PORT", port.to_string());
+
+    // 检测虚拟环境并注入 PATH
+    if let Some(venv_path) = detect_venv_bin(project_path) {
+        let current_path = std::env::var("PATH").unwrap_or_default();
+        command.env("PATH", format!("{}:{}", venv_path, current_path));
+        command.env("VIRTUAL_ENV", venv_path.replace("/bin", ""));
+    }
+
+    let child = command
         .stdout(log_file)
         .stderr(log_err)
         .spawn()?;

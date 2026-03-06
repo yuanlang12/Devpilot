@@ -156,6 +156,28 @@ fn is_process_alive(pid: u32) -> bool {
         .unwrap_or(false)
 }
 
+/// 检测 Python 虚拟环境，返回合适的 python 可执行文件路径
+fn detect_python_executable(dir: &std::path::Path) -> String {
+    // 常见虚拟环境目录名
+    let venv_dirs = [".venv", "venv", "env", ".env"];
+    for venv in &venv_dirs {
+        let python_path = dir.join(venv).join("bin").join("python");
+        if python_path.exists() {
+            return python_path.to_string_lossy().to_string();
+        }
+    }
+    // 也检查上级目录（backend/ 子目录的虚拟环境可能在项目根目录）
+    if let Some(parent) = dir.parent() {
+        for venv in &venv_dirs {
+            let python_path = parent.join(venv).join("bin").join("python");
+            if python_path.exists() {
+                return python_path.to_string_lossy().to_string();
+            }
+        }
+    }
+    "python".to_string()
+}
+
 fn detect_project(dir: &std::path::Path) -> (String, Option<String>, String) {
     // 始终使用文件夹名作为项目名
     let name = dir
@@ -221,16 +243,20 @@ fn detect_project(dir: &std::path::Path) -> (String, Option<String>, String) {
 
     // Python 项目（也检查 backend/ 子目录）
     if dir.join("manage.py").exists() {
-        return (name, Some("Django".to_string()), "python manage.py runserver".to_string());
+        let python = detect_python_executable(dir);
+        return (name, Some("Django".to_string()), format!("{} manage.py runserver", python));
     }
     if dir.join("backend").join("manage.py").exists() {
-        return (name, Some("Django".to_string()), "cd backend && python manage.py runserver".to_string());
+        let python = detect_python_executable(&dir.join("backend"));
+        return (name, Some("Django".to_string()), format!("cd backend && {} manage.py runserver", python));
     }
     if dir.join("requirements.txt").exists() || dir.join("pyproject.toml").exists() {
-        return (name, Some("Python".to_string()), "python main.py".to_string());
+        let python = detect_python_executable(dir);
+        return (name, Some("Python".to_string()), format!("{} main.py", python));
     }
     if dir.join("backend").join("requirements.txt").exists() {
-        return (name, Some("Python".to_string()), "cd backend && python main.py".to_string());
+        let python = detect_python_executable(&dir.join("backend"));
+        return (name, Some("Python".to_string()), format!("cd backend && {} main.py", python));
     }
 
     // Go 项目
