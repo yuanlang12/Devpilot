@@ -23,7 +23,7 @@ DevPilot 就是来解决这些问题的。
 
 ## 截图
 
-<!-- 在这里添加应用截图 -->
+![DevPilot 运行截图](screenshot.png)
 
 ## 下载安装
 
