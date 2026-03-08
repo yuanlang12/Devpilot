@@ -185,12 +185,25 @@ fn detect_project(dir: &std::path::Path) -> (String, Option<String>, String) {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "unknown".to_string());
 
-    // 尝试多个位置的 package.json（项目根目录、frontend/、client/ 子目录）
-    let candidates = [
-        (dir.join("package.json"), ""),
-        (dir.join("frontend").join("package.json"), "cd frontend && "),
-        (dir.join("client").join("package.json"), "cd client && "),
+    // 尝试多个位置的 package.json：先查根目录，再扫描所有一级子目录
+    let mut candidates: Vec<(std::path::PathBuf, String)> = vec![
+        (dir.join("package.json"), "".to_string()),
     ];
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let sub_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                // 跳过隐藏目录和 node_modules
+                if sub_name.starts_with('.') || sub_name == "node_modules" {
+                    continue;
+                }
+                if path.join("package.json").exists() {
+                    candidates.push((path.join("package.json"), format!("cd {} && ", sub_name)));
+                }
+            }
+        }
+    }
 
     for (pkg_path, cd_prefix) in &candidates {
         if let Ok(content) = fs::read_to_string(pkg_path) {
@@ -241,27 +254,55 @@ fn detect_project(dir: &std::path::Path) -> (String, Option<String>, String) {
         }
     }
 
-    // Python 项目（也检查 backend/ 子目录）
+    // Python 项目：先查根目录，再扫描子目录
     if dir.join("manage.py").exists() {
         let python = detect_python_executable(dir);
         return (name, Some("Django".to_string()), format!("{} manage.py runserver", python));
-    }
-    if dir.join("backend").join("manage.py").exists() {
-        let python = detect_python_executable(&dir.join("backend"));
-        return (name, Some("Django".to_string()), format!("cd backend && {} manage.py runserver", python));
     }
     if dir.join("requirements.txt").exists() || dir.join("pyproject.toml").exists() {
         let python = detect_python_executable(dir);
         return (name, Some("Python".to_string()), format!("{} main.py", python));
     }
-    if dir.join("backend").join("requirements.txt").exists() {
-        let python = detect_python_executable(&dir.join("backend"));
-        return (name, Some("Python".to_string()), format!("cd backend && {} main.py", python));
+    // 扫描子目录找 Python 项目
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let sub_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                if sub_name.starts_with('.') || sub_name == "node_modules" {
+                    continue;
+                }
+                if path.join("manage.py").exists() {
+                    let python = detect_python_executable(&path);
+                    return (name, Some("Django".to_string()), format!("cd {} && {} manage.py runserver", sub_name, python));
+                }
+                if path.join("requirements.txt").exists() || path.join("pyproject.toml").exists() {
+                    let python = detect_python_executable(&path);
+                    return (name, Some("Python".to_string()), format!("cd {} && {} main.py", sub_name, python));
+                }
+            }
+        }
     }
 
     // Go 项目
     if dir.join("go.mod").exists() {
         return (name, Some("Go".to_string()), "go run .".to_string());
+    }
+
+    // 最后再扫描子目录找 Go 项目
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let sub_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                if sub_name.starts_with('.') || sub_name == "node_modules" {
+                    continue;
+                }
+                if path.join("go.mod").exists() {
+                    return (name, Some("Go".to_string()), format!("cd {} && go run .", sub_name));
+                }
+            }
+        }
     }
 
     (name, None, "npm run dev".to_string())
