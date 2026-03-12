@@ -104,16 +104,27 @@ impl ProjectRegistry {
     }
 
     /// 同步发现的服务器到注册表：已有则更新运行状态，没有则自动注册
-    pub fn sync_discovered(&mut self, path: &str, pid: u32, port: u16) {
+    pub fn sync_discovered(&mut self, path: &str, pid: u32, port: u16, full_command: Option<String>) {
         if let Some(existing) = self.projects.iter_mut().find(|p| p.path == path) {
             existing.pid = Some(pid);
             existing.actual_port = Some(port);
             existing.status = ProjectStatus::Running;
+            // 用真实命令覆盖猜出来的命令
+            if let Some(cmd) = full_command {
+                if !cmd.is_empty() {
+                    existing.start_command = cmd;
+                }
+            }
         } else if self.add_project(path, None).is_ok() {
             if let Some(project) = self.projects.iter_mut().find(|p| p.path == path) {
                 project.pid = Some(pid);
                 project.actual_port = Some(port);
                 project.status = ProjectStatus::Running;
+                if let Some(cmd) = full_command {
+                    if !cmd.is_empty() {
+                        project.start_command = cmd;
+                    }
+                }
             }
         }
     }

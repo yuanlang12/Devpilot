@@ -7,6 +7,7 @@ pub struct DevServer {
     pub pid: u32,
     pub port: u16,
     pub command: String,
+    pub full_command: Option<String>,
     pub cwd: Option<String>,
     pub project_name: Option<String>,
     pub project_type: Option<String>,
@@ -98,20 +99,19 @@ pub fn scan_listening_ports() -> Result<Vec<DevServer>, Box<dyn std::error::Erro
 
     for (project_root, servers) in &project_groups {
         if servers.len() == 1 {
-            // 单个服务，使用规范化后的项目根目录来获取名称
             let s = servers[0];
             let (project_name, project_type) = detect_project_info(project_root);
             result.push(DevServer {
                 pid: s.pid,
                 port: s.port,
                 command: s.command.clone(),
+                full_command: Some(s.full_command.clone()),
                 cwd: Some(project_root.clone()),
                 project_name,
                 project_type,
                 related_ports: vec![],
             });
         } else {
-            // 多个服务属于同一项目，合并
             let primary = pick_primary_server(servers);
             let (project_name, project_type) = detect_project_info(project_root);
 
@@ -128,6 +128,7 @@ pub fn scan_listening_ports() -> Result<Vec<DevServer>, Box<dyn std::error::Erro
                 pid: primary.pid,
                 port: primary.port,
                 command: primary.command.clone(),
+                full_command: Some(primary.full_command.clone()),
                 cwd: Some(project_root.clone()),
                 project_name,
                 project_type,
@@ -141,6 +142,7 @@ pub fn scan_listening_ports() -> Result<Vec<DevServer>, Box<dyn std::error::Erro
             pid: s.pid,
             port: s.port,
             command: s.command.clone(),
+            full_command: Some(s.full_command.clone()),
             cwd: s.project_dir.clone(),
             project_name: Some(s.command.clone()),
             project_type: None,

@@ -13,6 +13,7 @@ interface DevServer {
   pid: number;
   port: number;
   command: string;
+  full_command: string | null;
   cwd: string | null;
   project_name: string | null;
   project_type: string | null;
@@ -44,7 +45,7 @@ function App() {
 
       const syncData = servers
         .filter((s) => s.cwd)
-        .map((s) => ({ path: s.cwd!, pid: s.pid, port: s.port }));
+        .map((s) => ({ path: s.cwd!, pid: s.pid, port: s.port, full_command: s.full_command }));
       if (syncData.length > 0) {
         try {
           await invoke("sync_discovered_projects", { servers: syncData });

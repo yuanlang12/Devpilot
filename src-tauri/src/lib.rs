@@ -25,13 +25,14 @@ struct DiscoveredServerSync {
     path: String,
     pid: u32,
     port: u16,
+    full_command: Option<String>,
 }
 
 #[tauri::command]
 fn sync_discovered_projects(servers: Vec<DiscoveredServerSync>) -> Result<(), String> {
     let mut reg = ProjectRegistry::load().map_err(|e| e.to_string())?;
     for server in &servers {
-        reg.sync_discovered(&server.path, server.pid, server.port);
+        reg.sync_discovered(&server.path, server.pid, server.port, server.full_command.clone());
     }
     reg.save().map_err(|e| e.to_string())
 }
