@@ -51,7 +51,7 @@ pub fn scan_listening_ports() -> Result<Vec<DevServer>, Box<dyn std::error::Erro
 
             if let Some(port_str) = name.rsplit(':').next() {
                 if let Ok(port) = port_str.parse::<u16>() {
-                    if (3000..=9999).contains(&port) {
+                    if (1024..=65535).contains(&port) {
                         let cmd_lower = cmd.to_lowercase();
                         if is_dev_server_process(&cmd_lower) {
                             // 避免同 PID 重复
