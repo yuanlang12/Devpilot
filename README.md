@@ -33,13 +33,17 @@ DevPilot 就是来解决这些问题的。
 
 ### macOS 提示"文件已损坏"？
 
-因为 app 还没有 Apple 开发者签名，macOS 会阻止打开。解决方法很简单，打开"终端"（在启动台搜索"终端"），粘贴下面这行命令，回车：
+因为 app 还没有 Apple 开发者签名，macOS 会阻止打开。解决方法：
+
+1. 按键盘上的 **Command + 空格**，弹出搜索框
+2. 输入「**终端**」，回车打开
+3. 复制下面这行，粘贴到终端窗口里，按回车：
 
 ```bash
 xattr -cr /Applications/DevPilot.app
 ```
 
-然后就能正常打开了。
+4. 再双击 DevPilot 就能正常打开了
 
 > Windows / Linux 版本计划中，敬请期待
 
